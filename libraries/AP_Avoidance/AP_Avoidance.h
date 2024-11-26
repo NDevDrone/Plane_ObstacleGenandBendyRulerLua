@@ -106,6 +106,22 @@ public:
     // for holding parameters
     static const struct AP_Param::GroupInfo var_info[];
 
+    //Code for Lua begin
+    uint8_t num_obstacles() { return _obstacle_count; }    
+    Location get_obstacle_loc(uint8_t instance){
+        return _obstacles[instance]._location;
+    }    
+    Vector3f get_obstacle_vel(uint8_t instance){
+        return _obstacles[instance]._velocity;
+    }    
+    int32_t get_obstacle_id(uint8_t instance){
+        return _obstacles[instance].src_id;
+    }    
+    int32_t get_obstacle_time(uint8_t instance){
+        return _obstacles[instance].timestamp_ms;
+    }
+    //Code for Lua end
+
 protected:
 
     // top level avoidance handler.  This calls the vehicle specific handle_avoidance with requested action

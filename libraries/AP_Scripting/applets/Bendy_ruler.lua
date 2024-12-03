@@ -88,7 +88,7 @@ assert(param:add_table(PARAM_TABLE_KEY, PARAM_TABLE_PREFIX, 7), 'could not add p
   // @Values: 0:Disabled,1:Enabled
   // @User: Advanced
 --]]
-BENDY_OPTIONS     = bind_add_param('OPTIONS', 1, 0)
+BENDY_OPTIONS     = bind_add_param('OPTIONS', 1, 1)
 
 --[[
   // @Param: BENDY_MARGIN_FENCE
@@ -157,7 +157,9 @@ local obstacle_count
 local collision_detected
 local GRAVITY_MSS=9.80665
 local LOCATION_SCALING_FACTOR_INV=89.83204953368922
-local new_target_loc = Location()  
+local new_target_loc = Location() 
+local current_target_s
+local flag=0
 
 --Auxiliary functions
 function wrap_180(angle)
@@ -313,6 +315,7 @@ function within_avoidance_height(obstacle,margin, deltat)
 
     if src_id >= 20000 and src_id < 30000 then
         --weather, always avoid
+        gcs:send_text(0, "Weather Alt")
         return true
     end    
     local alt_cm
@@ -624,7 +627,7 @@ function update_mission_avoidance(avd, new_target_loc)
     -- test for flying past the waypoint, so if we are close, we have room to dodge after the waypoint
     local avoid_max = math.min(avoid_step1_m, full_distance + math.min(margin_fence / 2, 100))
     local avoid_sec1 = avoid_max / airspeed
-    local bearing_inc_cd = 500
+    local bearing_inc_cd = 1500
     local distance = airspeed * avoid_sec1
     local bearing_cd =math.deg(current_loc:get_bearing(new_target_loc))*100  
     -- report collisions
@@ -846,9 +849,17 @@ function update()
     
     current_loc = ahrs:get_position()
     target_loc= vehicle:get_target_location()
+    local current_target
+    if target_loc ~=nil then
+        current_target=target_loc:copy()
+        --gcs:send_text(0, "Update_Current_target")
+    end
     --gcs:send_text(0, string.format("Original pos: Lat: %.2f, Lon: %.2f", target_loc:lat(),target_loc:lng()))
 
-    local current_target=target_loc:copy()
+    
+    if flag==0 and target_loc ~=nil then
+        current_target_s=target_loc:copy()
+    end
     --gcs:send_text(0, string.format("Current_targ Latitude: %.2f, Current_targ longitude: %.2f", current_target:lat(),current_target:lng()))
     local groundspeed=ahrs:groundspeed_vector():length()
     if not current_loc then
@@ -857,6 +868,13 @@ function update()
     else
         if mission_clear(current_loc, 400, 100, 25)== true then
             gcs:send_text(0, "Mission clear")
+            if target_loc ~=nil then
+                if target_loc:lng()~=current_target_s:lng() and flag==1 then
+                    vehicle:update_target_location(current_target, current_target_s) 
+                    flag=0
+                    gcs:send_text(0, "Returning to path")
+                end
+            end
         else
             if target_loc then
                 --gcs:send_text(0, "Calculating mission avoidance")
@@ -867,7 +885,7 @@ function update()
                     --vehicle:set_target_location(target_loc)
                     --gcs:send_text(0, string.format("New pos: Lat: %.2f, Lon: %.2f", target_loc:lat(),target_loc:lng()))
                     gcs:send_text(0, "Updating target")
-
+                    flag=1
                 end
                 gcs:send_text(0, "Mission not clear")
 
